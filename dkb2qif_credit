@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+
+import csv
+import sys
+from datetime import datetime
+import qifparse.qif as qif
+
+# Usage: dkb2qif infile outfile
+
+input_path = sys.argv[1]
+output_path = sys.argv[2]
+
+def parse_row(row):
+   date = datetime.strptime(row[1], '%d.%m.%Y')
+   payee = row[3]
+   memo = row[3]
+   amount = float(row[4].replace('.', '').replace(',', '.'))
+
+   return qif.Transaction(date=date, amount=amount, payee=payee, memo=memo)
+
+with open(input_path, 'r', encoding='iso-8859-1') as infile:
+   csv_reader = csv.reader(infile, delimiter=';', quotechar='"')
+   qif_obj = qif.Qif()
+   row = next(csv_reader)
+   acc = qif.Account(name=row[1], account_type='Bank')
+   qif_obj.add_account(acc)
+   for row in csv_reader:
+      if len(row) == 7 and row[1] != 'Wertstellung':
+         transaction = parse_row(row)
+         if transaction.amount != 0:
+            acc.add_transaction(transaction, header='!Type:Bank')
+   with open(output_path, mode='w') as outfile:
+      outfile.write(str(qif_obj))
+
